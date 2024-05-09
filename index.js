@@ -29,6 +29,24 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const assignmentCollection = client
+      .db("assignmentDB")
+      .collection("assignments");
+
+    app.get("/assignments", async (req, res) => {
+      const cursor = assignmentCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/assignments", async (req, res) => {
+      const newAssignments = req.body;
+      console.log(newAssignments);
+      const result = await assignmentCollection.insertOne(newAssignments);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
