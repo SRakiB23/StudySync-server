@@ -8,14 +8,10 @@ const corsConfig = {
   Credential: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
 };
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-//studySyncNetwork
-//fy9sNhkKTdnUGgsV
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.552onl4.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
