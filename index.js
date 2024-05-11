@@ -54,10 +54,10 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/assignments/:id", async (req, res) => {
+    app.patch("/assignments/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
-      const options = { upsert: true };
+      // const options = { upsert: true };
       const updatedAssignments = req.body;
       const assignment = {
         $set: {
@@ -67,13 +67,13 @@ async function run() {
           marks: updatedAssignments.marks,
           dueDate: updatedAssignments.dueDate,
           difficulty: updatedAssignments.difficulty,
+          documentLink: updatedAssignments.documentLink,
+          note: updatedAssignments.note,
+          status: updatedAssignments.status,
+          obtained_marks: updatedAssignments.obtained_marks,
         },
       };
-      const result = await assignmentCollection.updateOne(
-        filter,
-        assignment,
-        options
-      );
+      const result = await assignmentCollection.updateOne(filter, assignment);
       res.send(result);
     });
 
