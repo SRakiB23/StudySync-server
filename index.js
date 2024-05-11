@@ -47,6 +47,16 @@ async function run() {
       res.send(result);
     });
 
+    // Define a new route for fetching assignments with empty obtained_marks
+    app.get("/assignments/obtained_marks/:obtained_marks", async (req, res) => {
+      const obtained_marks = req.params.obtained_marks;
+      const cursor = assignmentCollection.find({
+        obtained_marks: "",
+      });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.post("/assignments", async (req, res) => {
       const newAssignments = req.body;
       console.log(newAssignments);
@@ -57,7 +67,6 @@ async function run() {
     app.patch("/assignments/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
-      // const options = { upsert: true };
       const updatedAssignments = req.body;
       const assignment = {
         $set: {
