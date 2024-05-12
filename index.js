@@ -80,6 +80,8 @@ async function run() {
           note: updatedAssignments.note,
           status: updatedAssignments.status,
           obtained_marks: updatedAssignments.obtained_marks,
+          submitted_by: updatedAssignments.submitted_by,
+          feedback: updatedAssignments.feedback,
         },
       };
       const result = await assignmentCollection.updateOne(filter, assignment);
