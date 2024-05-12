@@ -57,6 +57,22 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/assignments/submitted_by/:email", async (req, res) => {
+      try {
+        const userEmail = req.params.email;
+
+        const cursor = assignmentCollection.find({
+          submitted_by: userEmail,
+        });
+
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (err) {
+        console.log("Error fetching assignments:", err);
+        res.status(500).send("Error fetching assignments");
+      }
+    });
+
     app.post("/assignments", async (req, res) => {
       const newAssignments = req.body;
       console.log(newAssignments);
