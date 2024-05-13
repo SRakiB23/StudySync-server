@@ -33,6 +33,9 @@ async function run() {
     const assignmentCollection = client
       .db("assignmentDB")
       .collection("assignments");
+    const submitAssignmentCollection = client
+      .db("assignmentDB")
+      .collection("submitassignments");
 
     app.get("/assignments", async (req, res) => {
       const cursor = assignmentCollection.find();
@@ -47,6 +50,13 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/submitassignments/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await submitAssignmentCollection.findOne(query);
+      res.send(result);
+    });
+
     // Define a new route for fetching assignments with empty obtained_marks
     app.get("/assignments/obtained_marks/:obtained_marks", async (req, res) => {
       const obtained_marks = req.params.obtained_marks;
@@ -57,15 +67,29 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/assignments/submitted_by/:email", async (req, res) => {
+    app.get(
+      "/submitassignments/obtained_marks/:obtained_marks",
+      async (req, res) => {
+        const obtained_marks = req.params.obtained_marks;
+        const cursor = submitAssignmentCollection.find({
+          obtained_marks: "",
+        });
+        const result = await cursor.toArray();
+        res.send(result);
+      }
+    );
+
+    app.get("/submitassignments/submitted_by/:email", async (req, res) => {
       try {
         const userEmail = req.params.email;
 
-        const cursor = assignmentCollection.find({
+        const cursor = submitAssignmentCollection.find({
           submitted_by: userEmail,
         });
+        console.log(userEmail);
 
         const result = await cursor.toArray();
+        console.log(result);
         res.send(result);
       } catch (err) {
         console.log("Error fetching assignments:", err);
@@ -77,6 +101,15 @@ async function run() {
       const newAssignments = req.body;
       console.log(newAssignments);
       const result = await assignmentCollection.insertOne(newAssignments);
+      res.send(result);
+    });
+
+    app.post("/submitassignments", async (req, res) => {
+      const submitAssignments = req.body;
+      console.log(submitAssignments);
+      const result = await submitAssignmentCollection.insertOne(
+        submitAssignments
+      );
       res.send(result);
     });
 
@@ -92,15 +125,33 @@ async function run() {
           marks: updatedAssignments.marks,
           dueDate: updatedAssignments.dueDate,
           difficulty: updatedAssignments.difficulty,
-          documentLink: updatedAssignments.documentLink,
-          note: updatedAssignments.note,
-          status: updatedAssignments.status,
+        },
+      };
+      const result = await assignmentCollection.updateOne(filter, assignment);
+      res.send(result);
+    });
+
+    app.patch("/submitassignments/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedAssignments = req.body;
+      const assignment = {
+        $set: {
+          photo: updatedAssignments.photo,
+          title: updatedAssignments.title,
+          description: updatedAssignments.description,
+          marks: updatedAssignments.marks,
+          dueDate: updatedAssignments.dueDate,
+          difficulty: updatedAssignments.difficulty,
           obtained_marks: updatedAssignments.obtained_marks,
           submitted_by: updatedAssignments.submitted_by,
           feedback: updatedAssignments.feedback,
         },
       };
-      const result = await assignmentCollection.updateOne(filter, assignment);
+      const result = await submitAssignmentCollection.updateOne(
+        filter,
+        assignment
+      );
       res.send(result);
     });
 
