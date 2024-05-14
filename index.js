@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-// const cookieParser = require("cookie-parser");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,11 +14,18 @@ const corsConfig = {
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173",
+      "https://studysync-network.web.app",
+      "https://studysync-network.firebaseapp.com",
+      "",
+    ],
     credentials: true,
   })
 );
+
 app.use(express.json());
+app.use(cookieParser());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.552onl4.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -32,10 +39,32 @@ const client = new MongoClient(uri, {
   },
 });
 
+//middlewares
+
+const logger = (req, res, next) => {
+  // console.log("Log Info: ", req.method, req.url);
+  next();
+};
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies.token;
+  // console.log("token in the middleware:", token);
+  if (!token) {
+    return res.status(401).send({ message: "Unathorized token" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Unathorized token" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const assignmentCollection = client
       .db("assignmentDB")
@@ -43,6 +72,10 @@ async function run() {
     const submitAssignmentCollection = client
       .db("assignmentDB")
       .collection("submitassignments");
+
+    const featuredAssignmentCollection = client
+      .db("assignmentDB")
+      .collection("featuredassignments");
 
     //auth related
     app.post("/jwt", async (req, res) => {
@@ -53,10 +86,16 @@ async function run() {
       });
       res.cookie("token", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production" ? "true" : "false",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       });
       res.send({ success: true });
+    });
+
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logging Out User:", user);
+      res.clearCookie("token", { maxAge: 0 }).send({ success: true });
     });
 
     app.get("/assignments", async (req, res) => {
@@ -65,33 +104,42 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/assignments/:id", async (req, res) => {
+    app.get("/submitassignments", async (req, res) => {
+      const cursor = submitAssignmentCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/featuredassignments", async (req, res) => {
+      const cursor = featuredAssignmentCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/assignments/:id", logger, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await assignmentCollection.findOne(query);
       res.send(result);
     });
 
-    app.get("/submitassignments/:id", async (req, res) => {
+    app.get("/submitassignments/:id", logger, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await submitAssignmentCollection.findOne(query);
       res.send(result);
     });
 
-    // Define a new route for fetching assignments with empty obtained_marks
-    app.get("/assignments/obtained_marks/:obtained_marks", async (req, res) => {
-      const obtained_marks = req.params.obtained_marks;
-      const cursor = assignmentCollection.find({
-        obtained_marks: "",
-      });
-      const result = await cursor.toArray();
-      res.send(result);
-    });
-
     app.get(
       "/submitassignments/obtained_marks/:obtained_marks",
+      logger,
+      verifyToken,
       async (req, res) => {
+        console.log("token Owner Info", req.user.email);
+        console.log("query user", req.query.user);
+        // if (req.user.email !== req.query.email) {
+        //   return res.status(403).send({ message: "Forbidden" });
+        // }
         const obtained_marks = req.params.obtained_marks;
         const cursor = submitAssignmentCollection.find({
           obtained_marks: "",
@@ -101,23 +149,27 @@ async function run() {
       }
     );
 
-    app.get("/submitassignments/submitted_by/:email", async (req, res) => {
-      try {
-        const userEmail = req.params.email;
+    app.get(
+      "/submitassignments/submitted_by/:email",
+      logger,
+      async (req, res) => {
+        try {
+          const userEmail = req.params.email;
 
-        const cursor = submitAssignmentCollection.find({
-          submitted_by: userEmail,
-        });
-        console.log(userEmail);
+          const cursor = submitAssignmentCollection.find({
+            submitted_by: userEmail,
+          });
+          console.log(userEmail);
 
-        const result = await cursor.toArray();
-        console.log(result);
-        res.send(result);
-      } catch (err) {
-        console.log("Error fetching assignments:", err);
-        res.status(500).send("Error fetching assignments");
+          const result = await cursor.toArray();
+          console.log(result);
+          res.send(result);
+        } catch (err) {
+          console.log("Error fetching assignments:", err);
+          res.status(500).send("Error fetching assignments");
+        }
       }
-    });
+    );
 
     app.post("/assignments", async (req, res) => {
       const newAssignments = req.body;
@@ -126,9 +178,8 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/submitassignments", async (req, res) => {
+    app.post("/submitassignments", logger, async (req, res) => {
       const submitAssignments = req.body;
-      console.log(submitAssignments);
       const result = await submitAssignmentCollection.insertOne(
         submitAssignments
       );
@@ -153,7 +204,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/submitassignments/:id", async (req, res) => {
+    app.patch("/submitassignments/:id", logger, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedAssignments = req.body;
@@ -168,6 +219,7 @@ async function run() {
           obtained_marks: updatedAssignments.obtained_marks,
           submitted_by: updatedAssignments.submitted_by,
           feedback: updatedAssignments.feedback,
+          status: updatedAssignments.status,
         },
       };
       const result = await submitAssignmentCollection.updateOne(
